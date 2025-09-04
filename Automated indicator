@@ -1,0 +1,1042 @@
+Código índices FICS
+rm(list = ls())
+library(DBI)
+library(keyring)
+library(readr)
+library(dplyr)
+library(readxl)
+library(scales)
+library(writexl)
+library(xlsx)
+library(tidyr)
+library(RODBC)
+library(magrittr)
+library(sqldf)
+library(tcltk)
+library(bit64)
+library(digest)
+library(hms)
+library(teradatasql)
+library(tidyverse)
+library(stringr)
+library(knitr)
+library(rpivotTable)
+library(shiny)
+library(reshape2)
+library(ggplot2)
+library(plyr)
+library(stringi)
+library(purrr)
+library(dplyr)
+library(RODBC)
+library(pivottabler)
+library(tidyverse)
+library(readxl)
+library(here)
+library(skimr)
+library(kableExtra)
+library(tidyverse)
+library(tidyquant)
+library(caroline)
+library(expss)
+library(data.table)
+library(janitor)
+library(openxlsx)
+library(numform)
+library(formattable)
+library(caroline)
+library(gtools)
+
+setwd("C:/Users/afparra/Desktop/Proyecto")
+
+ch <- odbcConnect(dsn = "dwh_consulta", uid = "dwh_consulta", pwd = "dwh_consulta")
+Tabla_Datos <- sqlQuery(ch, "with
+                        fecha_tx_mas_reciente as (
+                          -- fecha de transmisión más reciente
+                          SELECT max(t.fecha)  as fecha
+                          FROM
+                          PROD_DWH_CONSULTA.NEGFID_INSUMOS as ni
+                          , PROD_DWH_CONSULTA.NEGFID_INSUMO_ENTIDAD as nie
+                          , PROD_DWH_CONSULTA.TIEMPO as t
+                          , PROD_DWH_CONSULTA.ENTIDADES as e
+                          , PROD_DWH_CONSULTA.PATRIMONIOS_AUTONOMOS as pa
+                          WHERE ni.Inf_ID = nie.Inf_ID
+                          and nie.Tie_ID = t.Tie_ID
+                          and nie.Paau_ID = pa.Paau_ID
+                          and ni.nivel1 = 519
+                          and ni.Tipo_Informe = 73
+                          and e.Tipo_Entidad in (5, 85, 87)
+                          and ni.Nivel2 = 6
+                          and ni.Nivel3 = 1
+                        ),
+                        Inventario_FIC as 
+                        (
+                          SELECT distinct
+                          pa.codigo_patrimonio,
+                          pa.nombre_patrimonio,
+                          nie.VALOR   as Categoria
+                          FROM
+                          PROD_DWH_CONSULTA.NEGFID_INSUMOS as ni
+                          , PROD_DWH_CONSULTA.NEGFID_INSUMO_ENTIDAD as nie
+                          , PROD_DWH_CONSULTA.TIEMPO as t
+                          , PROD_DWH_CONSULTA.ENTIDADES as e
+                          , PROD_DWH_CONSULTA.PATRIMONIOS_AUTONOMOS as pa
+                          WHERE ni.Inf_ID = nie.Inf_ID
+                          and nie.Tie_ID = t.Tie_ID
+                          and nie.Paau_ID = pa.Paau_ID
+                          and ni.nivel1 = 519
+                          and e.tipo_entidad in(5, 85, 87)
+                          and ni.Tipo_Informe = 73
+                          and t.fecha BETWEEN '2022-10-01' AND '2022-10-31'
+                          and ni.Nivel2 = 6
+                          and ni.Nivel3 = 1
+                        ),
+                        f351 as (
+                          select distinct
+                          m.Fecha_Balance as FECHA_CORTE,
+                          m.Tipo_Entidad,
+                          m.codigo_entidad,
+                          m.nombre_entidad,
+                          m.CODIGO_PATRIMONIO,
+                          i.nombre_patrimonio,
+                          p.Nro_Id_Asignado_Custodio,
+                          
+                          case
+                          when i.Categoria = 1 then 'Monetario'
+                          when i.Categoria = 2 then 'Renta_Variable'
+                          when i.Categoria = 3 then 'Balanceado'
+                          else 'Error' 
+                          end as Nombre_Categoria,
+                          p.Fecha_Emision,
+                          p.Fecha_Vencim_Titulo,
+                          p.Fecha_Vencim_Cupon,
+                          p.Fecha_Compra,
+                          p.Dias_Al_Vencimiento,
+                          p.Valor_Mercado_O_Pres_Pesos / 1000000 as Valor_Razonable,
+                          p.Valor_Nominal,
+                          p.Nemotecnico,
+                          p.Nro_Id_Emisor,
+                          p.Metodo_De_Valoracion,					
+                          p.Tipo_Deuda,
+                          p.Tipo_Deuda_Originaria,	
+                          p.Calificacion_De_Titulo_Emisor,
+                          Case 
+                          when p.Calificacion_De_Titulo_Emisor in (20) then 'AAA'
+                          when p.Calificacion_De_Titulo_Emisor in (21) then 'AA+'
+                          when p.Calificacion_De_Titulo_Emisor in (22) then 'AA'
+                          when p.Calificacion_De_Titulo_Emisor in (23) then 'AA-'
+                          when p.Calificacion_De_Titulo_Emisor in (24) then 'A+' 
+                          when p.Calificacion_De_Titulo_Emisor in (25) then 'A'
+                          when p.Calificacion_De_Titulo_Emisor in (26) then 'A-'
+                          when p.Calificacion_De_Titulo_Emisor in (27) then 'BBB+'
+                          when p.Calificacion_De_Titulo_Emisor in (28) then 'BBB'
+                          when p.Calificacion_De_Titulo_Emisor in (29) then 'BBB-'
+                          when p.Calificacion_De_Titulo_Emisor in (30) then 'BB+'
+                          when p.Calificacion_De_Titulo_Emisor in (31) THEN 'BB'
+                          when p.Calificacion_De_Titulo_Emisor in (32) THEN 'BB-' 
+                          when p.Calificacion_De_Titulo_Emisor in (33) THEN 'B+' 
+                          when p.Calificacion_De_Titulo_Emisor in (34) THEN 'B' 
+                          when p.Calificacion_De_Titulo_Emisor in (35) THEN 'B-'
+                          when p.Calificacion_De_Titulo_Emisor in (36) THEN 'CCC+'
+                          when p.Calificacion_De_Titulo_Emisor in (37) THEN 'CCC'
+                          when p.Calificacion_De_Titulo_Emisor in (38) THEN 'CCC-'
+                          when p.Calificacion_De_Titulo_Emisor in (39) THEN 'CC'
+                          when p.Calificacion_De_Titulo_Emisor in (40) THEN 'C'
+                          when p.Calificacion_De_Titulo_Emisor in (41,42,43) THEN 'D'
+                          when p.Calificacion_De_Titulo_Emisor>=48 then 'Sin_Calificacion'
+                          when p.Calificacion_De_Titulo_Emisor >=8 and p.Calificacion_De_Titulo_Emisor<=16 then 'CP-Especulativo'
+                          when p.Calificacion_De_Titulo_Emisor<8 then 'CP-Grado Inversion'
+                          Else 'N/A' 
+                          end as Calificacion_Riesgo,
+                          p.Razon_Social_Emisor,
+                          case 
+                          when p.Nro_Id_Emisor in('8300854261') then 'BVC' 
+                          when p.Nro_Id_Emisor in('8110122713') then 'GRUPO DE INVERSIONES SURAMERICANA' 
+                          when p.Nro_Id_Emisor in('8002161815') then 'GRUPO AVAL' 
+                          when p.Nro_Id_Emisor in('8999990681') then 'ECOPETROL' 
+                          when p.Nro_Id_Emisor in('8903006536') then 'CORFICOLOMBIANA' 
+                          when p.Nro_Id_Emisor in('8909039388') then 'BANCOLOMBIA' 
+                          when p.Nro_Id_Emisor in('8909006089') then 'ALMACENES EXITO' 
+                          when p.Nro_Id_Emisor in('9001180802') then 'CAMARA DE COMPENSACION DE DIVISAS' 
+                          when p.Nro_Id_Emisor in('9001823894') then 'CRCC' 
+                          when p.Nro_Id_Emisor in('8999990902') then 'GOBIERNO NACIONAL'
+                          when p.Nro_Id_Emisor in('8600343137') then 'BANCO DAVIVIENDA' 
+                          when p.Nro_Id_Emisor in('8600030201') then 'BBVA' 
+                          when p.Nro_Id_Emisor in('8600077389') then 'BANCO POPULAR' 
+                          when p.Nro_Id_Emisor in('8903002794') then 'BANCO DE OCCIDENTE' 
+                          when p.Nro_Id_Emisor in('9005204847') then 'CREDICORP CAPITAL FICUCIARIA'
+                          when p.Nro_Id_Emisor in('8002507696037') then 'PATRIMONIO AUT ESTRATEGIAS INMOBILIARIAS' 
+                          when p.Nro_Id_Emisor in('8600029644') then 'BANCO DE BOGOTA' 
+                          when p.Nro_Id_Emisor in('8600073354') then 'BANCO CAJA SOCIAL'
+                          when p.Nro_Id_Emisor in('8110303227') then 'CELSIA S.A'      	 
+                          else p.Razon_Social_Emisor end RS_Emisor,
+                          p.Tasa_Facial_Del_Tit,
+                          p.Descripcion_Tasa_Facial_Titulo,
+                          p.Tasa,
+                          p.Valor_Tasa_O_Spread / 1 as Valor_Tasa_O_Spread,
+                          p.Codigo_Moneda,
+                          p.Clase_Inversion,
+                          case 
+                          when p.clase_inversion in('CRAMGVS', 'CRAMGNVS', 'CRAMAVS', 'CRAMANVS', 'CRAEGE', 'CRABGVS', 'CRABGNVS', 'CRABAVS', 'CRABANVS', 'CRAAGVS', 'CRAAGNVS', 'AEE', 
+                                                    'AAEVS', 'AAENVS', 'APP','CRAAANVS',	'CRAAAVS',	'CRAEAE') then 'ACC Alta'
+                          when p.clase_inversion in('ANLB', 'ABEVS', 'ABENVS') then 'Acc Baja'
+                          when p.clase_inversion in('AMEVS', 'AMENVS') then 'Acc Media'
+                          When p.Clase_Inversion in ('APP', 'FCPAPP') then 'Asoc Publico-Privadas'                                                                                                                                                                              
+                          
+                          When p.Clase_Inversion in ('CCA',           'CCACP',               'CCACPTP',         'CCAESPMM',    'CCATP',                'CCC',    'CCCTP',               'CCE',     'CCESPB',             'CCESPCM',         'CCESPE',             'CCESPI',              'CCETP',
+                                                     'PCCBCTP',          'PCCBSTP') then 'Fondos'
+                          When p.Clase_Inversion in ('FCP',            'FCPI',    'FINDI', 'FINDICO',           'FINDID',              'FINDIRF',                'PFBPD',               'PFIMM',             'PFIRF', 'PFPC',  'PHF',     'REITS') then 'Fondos'
+                          
+                          When p.Clase_Inversion in ('FCPE',          'FCPIE', 'FMUI', 'PFMUIA',           'PFMUIB',            'PFMUITD') then 'Fondos Exterior'
+                          
+                          When p.Clase_Inversion in ('ACEAS',      'ACEIF', 'ACPB', 'BAGR', 'BCES',  'BGEVS',               'BOCENVS',                'BOCEVS',            'BOCGEVS',        'BOENVS',           'BOEVS',               'BOPENVS',        'BOPEVS',            'BOPGEVS',
+                                                     'BPEDN',              'CGAS', 'CGIF') then 'Bonos'
+                          
+                          When p.Clase_Inversion in ('BHIP',          'THIP') then 'Hipotecario'
+                          
+                          When p.Clase_Inversion in ('BOEBE',      'BOEEDB',            'BOEGE',              'BOEOM',            'BOGBE',                'BOGEEDB',         'BOGGE',             'BOGOM',           'RFEBCE',             'RFGBCE',            'TERE',   'TSEGE') then 'Bonos Exterior'
+                          
+                          When p.Clase_Inversion in ('CAV',           'CDAT',  'CDT',    'CED',    'CEDH') then 'CDT'
+                          
+                          When p.Clase_Inversion in ('CDEBE') then 'CDT Exterior'
+                          
+                          When p.Clase_Inversion in ('RFBET',       'RFDBET',             'RFDBETC') then 'Titularizaciones Exterior'
+                          
+                          When p.Clase_Inversion in ('RFBETC',     'TCCENVS',          'TCCEVS',             'TCCH',  'TCCTIN',                'TMENVS',           'TMEVS',              'TPENVS',            'TPEVS', 'TPMTIN') then 'Titularizaciones'
+                          
+                          When p.Clase_Inversion in ('TGREP',      'TREP') then 'Banrep'
+                          
+                          When p.Clase_Inversion in ('TSDO',         'TSEGE',                'TSTF',   'TSTM', 'TSTV',  'TSUV') then 'TES'
+                          
+                          When p.Clase_Inversion in ('DEPVE',      'DEPVN',              'DEPVO') then 'Depositos'
+                          
+                          When p.Clase_Inversion in ('DEPVE') then 'Depositos Exterior'
+                          
+                          When p.Clase_Inversion in ('PEEBE',       'PEEEDB',             'PEENVS',            'PEEVS') then 'Estructurados'
+                          
+                          When p.Clase_Inversion in ('ORFEBE',    'ORFEEDB',          'ORFEGE',            'ORFEOM',          'ORFGBE',                'ORFGEEDB',      'ORFGGE',           'ORFGOM',         'TRFFEC') then 'Otros Exterior'
+                          When p.Clase_Inversion in ( 'DPATAUTTCE', 'DPATAUTINMU', 'DPATAUT', 'DPATAUTOTROS', 'INMUBODEGAS', 'INMULOCALES', 'INMULOTES', 'INMUOFICINAS ', 'INMUSALUD ', 'INMUVIVIENDAS', 'INMUOTROS', 'TDCECHEQUE', 'TDCECONTRATO',
+                                                      'TDCECONTARREN', 'TDCECTADECO', 'TDCEFACTURA', 'TDCELETRA', 'TDCEOTROS', 'TDCEPAGARE', 'TDCEPAGLIB', 'TDCESENTENCIA',  'CDM', 'DIVISAS ', 'TDERECON', 'INVINMUEBLE' ) then 'Inversiones Especiales'
+                          
+                          Else 'Otros'
+                          end  as AgrupClasInv_3
+                          from 
+                          prod_dwh_consulta.pi_maestra as m,
+                          prod_dwh_consulta.pi_portafolios as p,
+                          inventario_fic i
+                          where  
+                          m.Codigo_Formato = 351
+                          and FECHA_CORTE BETWEEN '2022-10-01' AND '2022-10-31'
+                          and p.Metodo_De_Valoracion in ('21')
+                          and m.sec = p.secmaestra
+                          and m.tipo_entidad in(5, 85, 87)
+                          and m.codigo_patrimonio = i.codigo_patrimonio
+                          and m.Codigo_Patrimonio  in (select codigo_patrimonio from  Inventario_FIC )
+                          
+                        ),
+                        eeff as (
+                          SELECT
+                          t.Fecha as FECHA_CORTE,
+                          pau.Tipo_Entidad,
+                          pau.Codigo_Entidad as Codigo_Entidad,
+                          pau.Codigo_Patrimonio as Codigo_Patrimonio,
+                          pa.Saldo_Sincierre_Total_Moneda_0/1000000 as Efectivo
+                          FROM
+                          PROD_DWH_CONSULTA.ESTFIN_INDIV_PA as pa,
+                          PROD_DWH_CONSULTA.TIEMPO as t,
+                          PROD_DWH_CONSULTA.ENTIDADES as ent,
+                          PROD_DWH_CONSULTA.PUC as p,
+                          PROD_DWH_CONSULTA.PATRIMONIOS_AUTONOMOS as pau
+                          WHERE Tipo_Informe = 19
+                          and pa.Tie_ID = t.Tie_ID
+                          and pa.Ent_ID = ent.Ent_ID
+                          and pa.Puc_ID = p.Puc_ID
+                          and pa.Paau_ID = pau.Paau_ID
+                          and t.Fecha BETWEEN '2022-10-01' AND '2022-10-31'
+                          and pau.Tipo_Entidad in (5,85,87)
+                          and pau.Tipo_Patrimonio in (9)
+                          and p.Codigo = 110000
+                          and pau.Codigo_Patrimonio in (select codigo_patrimonio from  Inventario_FIC )
+                        )
+                        --Main
+                        select 
+                        f351.*,
+                        eeff.efectivo
+                        from f351, eeff
+                        where
+                        f351.fecha_corte = eeff.fecha_corte
+                        and f351.tipo_entidad = eeff.tipo_entidad
+                        and f351.codigo_entidad = eeff.codigo_entidad
+                        and f351.codigo_patrimonio = eeff.codigo_patrimonio")
+
+ odbcClose(ch)
+
+#######################################################################################################################################################
+####Parte para sacar el vector de ISIN que se incluye en las consultas de proveedores de precios
+ISIN <- select(Tabla_Datos, Nro_Id_Asignado_Custodio)###genera el vector de ISIN que se va a introducir en las consultas de proveedores de precios este vector toca filtrarlo
+
+ISIN_filtrado <- unique(ISIN) #####Deja solo los códigos ISIN sin que se repitan
+
+ISIN_filtrado$Nro_Id_Asignado_Custodio <- paste0("'",ISIN_filtrado$Nro_Id_Asignado_Custodio,"'")
+
+ISIN_filtrado_a <- ISIN_filtrado ### aca se obtiene el vector de isin filtrado con los apostrofes
+ISIN_filtrado_a
+
+options(max.print = 3000)
+Vector_Filtrado <-print(ISIN_filtrado_a, quote = FALSE, row.names = FALSE)
+Vector_Filtrado$Nro_Id_Asignado_Custodio <- paste0(Vector_Filtrado$Nro_Id_Asignado_Custodio, ",")
+Vector_Filtrado
+options(max.print = .Machine$integer.max)
+Vector_Final_ISIN <- print(Vector_Filtrado, quote = FALSE, row.names = FALSE, max = NULL)####esta columna de valores que se imprime en la consola se copia en las consultas
+
+paste(Vector_Final_ISIN, collapse = ",")
+########################################################################################################################################################
+####Parte para ejecutar las consultas de los proveedores de precios mensual y sacar los indicadores en la parte AND ISIN in() agregar el vector de isin que se abstrajo de la consulta anterior que ya fue concatenada
+##########################################################################################################################################################
+dbCon<- odbcConnect(dsn = "dwh_consulta", uid = "dwh_consulta", pwd = "dwh_consulta")
+PP_MENSUAL <- sqlQuery( dbCon, " SELECT    ISIN, NEMOTECNICO, FECHA_VALORACION, PRECIO_SUCIO, PRECIO_LIMPIO
+	WHERE 
+	
+	FECHA_VALORACION BETWEEN '2022-10-01' AND '2022-10-31'
+        AND ISIN in ( )
+
+FROM PROD_DWH_DATA.PPV_PRECIOS
+")
+odbcClose(dbCon)
+
+
+dbCon2<- odbcConnect(dsn = "dwh_consulta", uid = "dwh_consulta", pwd = "dwh_consulta")
+PP_DIARIO <- sqlQuery( dbCon2, "SELECT    ISIN, NEMOTECNICO, FECHA_VALORACION, PRECIO_SUCIO, PRECIO_LIMPIO
+	WHERE 
+	
+	FECHA_VALORACION BETWEEN '2022-11-01' AND current_date - 3
+        AND ISIN in ( )
+FROM PROD_DWH_DATA.PPV_PRECIOS
+")
+odbcClose(dbCon2)
+##################################################################################################################################################################
+####### Generar columna vencimiento que aparece con función SI en excel para intervalo de fechas del vencimiento
+Vencimiento <- select(Tabla_Datos, Dias_Al_Vencimiento)
+### multiple if else condition of dataframe column  in R
+####Se crea columna de vencimiento en intervalo de días
+Vencimiento_dias <- mutate(Vencimiento, Vencimiento1 = ifelse(Dias_Al_Vencimiento %in% NA, "No tiene vencimiento",
+                                                              ifelse(Dias_Al_Vencimiento %in% 1:30, "Entre 1 y 30 días",
+                                                                     ifelse(Dias_Al_Vencimiento %in% 31:60, "Entre 30 y 60 días", 
+                                                                            ifelse(Dias_Al_Vencimiento %in% 61:90, "Entre 60 y 90 días",
+                                                                                   ifelse(Dias_Al_Vencimiento %in% 91:180, "Entre 90 y 180 días",
+                                                                                          ifelse(Dias_Al_Vencimiento %in% 181:365, "Entre 180 y 365 días","Más de 365 días")))))))
+##Se dejan solo los intervalos de días
+Vencimiento_dias <- subset( Vencimiento_dias, select = -Dias_Al_Vencimiento )
+###Se crea la tabla que se hay en la consulta 1 del excel
+Consulta_1_1 <- select(Tabla_Datos, FECHA_CORTE, Tipo_Entidad, Codigo_Entidad, Nombre_Entidad, Codigo_Patrimonio, Nombre_Patrimonio, Nro_Id_Asignado_Custodio, Nombre_Categoria, Fecha_Emision, Fecha_Vencim_Titulo,
+                                 Fecha_Vencim_Cupon, Fecha_Compra, Dias_Al_Vencimiento, Valor_Razonable, Valor_Nominal, Nemotecnico, Nro_Id_Emisor, Metodo_De_Valoracion, Tipo_Deuda, Tipo_Deuda_Originaria, Calificacion_De_Titulo_Emisor, Calificacion_Riesgo, Razon_Social_Emisor,
+                                 RS_Emisor, Tasa_Facial_Del_Tit, Descripcion_Tasa_Facial_Titulo, Tasa, Valor_Tasa_O_Spread, Codigo_Moneda, Clase_Inversion, AgrupClasInv_3, Efectivo)
+Consulta_1 <- cbind(Consulta_1_1, Vencimiento_dias)
+
+####Se pivotea la FECHA_CORTE para que quede en las columnas del dataframe
+
+pivot <- Consulta_1 %>%
+
+  pivot_wider(
+    names_from = "FECHA_CORTE",
+    values_from = "Valor_Razonable")
+
+  #####Una vez se pivotea se deben agrupar las inversiones por nombres,   
+
+Portafolio_De_Referencia <- select(pivot, AgrupClasInv_3, Codigo_Moneda, Vencimiento1, Tasa, Calificacion_Riesgo, RS_Emisor, Nemotecnico, Nro_Id_Asignado_Custodio,
+                                   Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria, '2022-10-01', '2022-10-02','2022-10-03','2022-10-04', '2022-10-05', 
+                                   '2022-10-06', '2022-10-07', '2022-10-08', '2022-10-09', '2022-10-10', '2022-10-11', '2022-10-12', '2022-10-13', 
+                                   '2022-10-14', '2022-10-15', '2022-10-16', '2022-10-17', '2022-10-18', '2022-10-19', '2022-10-20', '2022-10-21', 
+                                   '2022-10-22', '2022-10-23', '2022-10-24', '2022-10-25', '2022-10-26', '2022-10-27', '2022-10-28', '2022-10-29', '2022-10-30', '2022-10-31')
+
+### Se agrupan los valores de las diferentes fechas, para que queden en la misma fila las diferentes fechas
+
+Portafolio_De_Referencia <- Portafolio_De_Referencia %>% 
+  group_by(AgrupClasInv_3, Codigo_Moneda, Vencimiento1, Tasa, Calificacion_Riesgo, RS_Emisor, Nemotecnico, Nro_Id_Asignado_Custodio,
+           Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria) %>% 
+  fill('2022-10-01', '2022-10-02','2022-10-03','2022-10-04', '2022-10-05', '2022-10-06', '2022-10-07',
+       '2022-10-08', '2022-10-09', '2022-10-10', '2022-10-11', '2022-10-12', '2022-10-13', '2022-10-14', '2022-10-15', '2022-10-16',
+       '2022-10-17', '2022-10-18', '2022-10-19', '2022-10-20', '2022-10-21', '2022-10-22', '2022-10-23', '2022-10-24', '2022-10-25',
+       '2022-10-26', '2022-10-27', '2022-10-28', '2022-10-29', '2022-10-30', '2022-10-31', .direction = 'up') %>%
+  fill('2022-10-01', '2022-10-02','2022-10-03','2022-10-04', '2022-10-05', '2022-10-06', '2022-10-07',
+       '2022-10-08', '2022-10-09', '2022-10-10', '2022-10-11', '2022-10-12', '2022-10-13', '2022-10-14', '2022-10-15', '2022-10-16',
+       '2022-10-17', '2022-10-18', '2022-10-19', '2022-10-20', '2022-10-21', '2022-10-22', '2022-10-23', '2022-10-24', '2022-10-25',
+       '2022-10-26', '2022-10-27', '2022-10-28', '2022-10-29', '2022-10-30', '2022-10-31', .direction = 'down') %>%
+  fill('2022-10-01', '2022-10-02','2022-10-03','2022-10-04', '2022-10-05', '2022-10-06', '2022-10-07',
+       '2022-10-08', '2022-10-09', '2022-10-10', '2022-10-11', '2022-10-12', '2022-10-13', '2022-10-14', '2022-10-15', '2022-10-16',
+       '2022-10-17', '2022-10-18', '2022-10-19', '2022-10-20', '2022-10-21', '2022-10-22', '2022-10-23', '2022-10-24', '2022-10-25',
+       '2022-10-26', '2022-10-27', '2022-10-28', '2022-10-29', '2022-10-30', '2022-10-31') %>%
+  distinct(AgrupClasInv_3, Codigo_Moneda, Vencimiento1, Tasa, Calificacion_Riesgo, RS_Emisor, Nemotecnico, Nro_Id_Asignado_Custodio,
+           Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria, .keep_all = TRUE)
+
+###Se reemplazan los NA por 0
+ Portafolio_De_Referencia <- Portafolio_De_Referencia %>% mutate_if(is.numeric, ~replace_na(., 0))
+ 
+ ##Se redondea sobre 6 decimales los valores del portafolio
+ Portafolio_De_Referencia <- Portafolio_De_Referencia %>% mutate_if(is.numeric, round, digits=6)
+ 
+### para verificar en excel write.xlsx(Portafolio_De_Referencia, "Port_Referencia.xlsx")
+###Se pondera por columna cada inversión
+ 
+options(scipen=999)
+
+Portafolio_De_Referencia_percentage <- pct(Portafolio_De_Referencia, c('2022-10-01', '2022-10-02','2022-10-03','2022-10-04', '2022-10-05', '2022-10-06', '2022-10-07',
+                                '2022-10-08', '2022-10-09', '2022-10-10', '2022-10-11', '2022-10-12', '2022-10-13', '2022-10-14', '2022-10-15', '2022-10-16',
+                                '2022-10-17', '2022-10-18', '2022-10-19', '2022-10-20', '2022-10-21', '2022-10-22', '2022-10-23', '2022-10-24', '2022-10-25',
+                                '2022-10-26', '2022-10-27', '2022-10-28', '2022-10-29', '2022-10-30', '2022-10-31'))
+ 
+
+## Se quitan las columnas de las fechas que no contienen el porcentaje de las columnas de fecha
+##Tener en cuenta que si el mes es de 31 días agregarle -42 y si es de 30 días dejar hasta -41
+Portafolio_De_Referencia_percentage <- Portafolio_De_Referencia_percentage[,c(-12,-13,-14,-15,-16,-17,-18,-19,-20,-21,-22,-23,-24,-25,-26,-27,-28,-29,-30,-31,-32,-33,-34,-35,-36,-37,-38,-39,-40,-41,-42)]
+
+## Se estima el promedio de las ponderaciones 
+Promedio <- as.data.frame(rowMeans(Portafolio_De_Referencia_percentage[,c(-1,-2,-3,-4,-5,-6,-7,-8,-9,-10,-11)]))
+
+colnames(Promedio) <- "Promedio"
+##Se deja el portafolio de referencia expresado en porcentajes y se le junta la columna que tiene el promedio por fila
+Portafolio_Final <- cbind(Portafolio_De_Referencia_percentage, Promedio)
+
+##Promedio * nominal
+
+Promedio$Promedio <-1000000*(Promedio$Promedio)
+
+sum(Promedio$Promedio)
+PromedioxNominal <- Promedio
+
+sum(PromedioxNominal$Promedio)
+colnames(PromedioxNominal)[1] <- "Promedio*Nominal"
+
+## PromedioxNominal <- cbind(Nro_Id_Asignado_Custodio, PromedioxNominal)
+####### Promedio Precio sucio mensual
+
+pivot_Mensual <- aggregate(PP_MENSUAL$PRECIO_SUCIO, list(PP_MENSUAL$ISIN), FUN=mean)
+
+colnames(pivot_Mensual)[1] <- "Nro_Id_Asignado_Custodio"
+colnames(pivot_Mensual)[2] <- "PRECIO_SUCIO"
+
+Portafolio_Agregado <- merge(Portafolio_De_Referencia_percentage, pivot_Mensual, by = "Nro_Id_Asignado_Custodio")
+
+Portafolio_Agregado <- arrange(Portafolio_Agregado, Nro_Id_Asignado_Custodio, Nemotecnico, Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria)
+
+ISINES <- as.data.frame(Portafolio_Agregado[, c("Nro_Id_Asignado_Custodio")])
+colnames(ISINES)[1] <- "Nro_Id_Asignado_Custodio"
+##Revisar dimensiones matrices Portafolio Agregado y Portafolio_De_Referencia_Percentage que sean iguales 
+
+Portafolio_De_Referencia_percentage <- cbind(Portafolio_De_Referencia_percentage, PromedioxNominal)
+###Se crea función para poder identificar los ISINES que no estan contenidos en la consulta de proveedores de precios
+`%notin%` <- Negate(`%in%`)
+Portafolio_De_Referencia_percentage <- as.data.frame(Portafolio_De_Referencia_percentage[!(Portafolio_De_Referencia_percentage$Nro_Id_Asignado_Custodio %notin% ISINES$Nro_Id_Asignado_Custodio),])
+## Se organiza el Portafolio de referencia con porcentajes
+Portafolio_De_Referencia_percentage <- arrange(Portafolio_De_Referencia_percentage, Nro_Id_Asignado_Custodio, Nemotecnico, Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria)
+##Comprobar si ambos portafolios estan igualmente organizados
+
+all(Portafolio_De_Referencia_percentage$Nro_Id_Asignado_Custodio == Portafolio_Agregado$Nro_Id_Asignado_Custodio)
+all(Portafolio_De_Referencia_percentage$Nombre_Entidad == Portafolio_Agregado$Nombre_Entidad)
+all(Portafolio_De_Referencia_percentage$Nombre_Patrimonio == Portafolio_Agregado$Nombre_Patrimonio)
+all(Portafolio_De_Referencia_percentage$Nombre_Categoria == Portafolio_Agregado$Nombre_Categoria)
+## Si al ejecutar el código en todos los all aparece TRUE ambas matrices están igualmente organizadas
+########### Calcula Q
+
+Q <- as.data.frame(Portafolio_De_Referencia_percentage$`Promedio*Nominal`/Portafolio_Agregado$PRECIO_SUCIO)
+
+colnames(Q)[1] <- "Q"
+###
+Portafolio_Final <- as.data.frame(Portafolio_Final[!(Portafolio_Final$Nro_Id_Asignado_Custodio %notin% ISINES$Nro_Id_Asignado_Custodio),])
+Portafolio_Final <- arrange(Portafolio_Final, Nro_Id_Asignado_Custodio, Nemotecnico, Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria)
+##
+all(Portafolio_Final$Nro_Id_Asignado_Custodio == Portafolio_Agregado$Nro_Id_Asignado_Custodio)
+all(Portafolio_Final$Nombre_Entidad == Portafolio_Agregado$Nombre_Entidad)
+all(Portafolio_Final$Nombre_Patrimonio == Portafolio_Agregado$Nombre_Patrimonio)
+all(Portafolio_Final$Nombre_Categoria == Portafolio_Agregado$Nombre_Categoria)
+###
+PRECIO_SUCIO <- as.data.frame(Portafolio_Agregado$PRECIO_SUCIO)
+colnames(PRECIO_SUCIO)[1] <- "PRECIO_SUCIO"
+###
+Portafolio_Final <- cbind(Portafolio_Final, PRECIO_SUCIO)
+Portafolio_Final <- cbind(Portafolio_Final, Q)
+## Sacando el promedio*nominal del Portafolio_De_Referencia_Percentage que ya esta organizado y con los ISINES que aparecen en la consulta de PP
+Nominal <- as.data.frame(Portafolio_De_Referencia_percentage[, c("Promedio*Nominal")])
+colnames(Nominal)[1]<-"Nominal"
+Portafolio_Final <- cbind(Portafolio_Final, Nominal)
+
+######
+
+pivot_Diario <- aggregate(PP_DIARIO$PRECIO_SUCIO, list(PP_DIARIO$ISIN, PP_DIARIO$FECHA_VALORACION), FUN=mean)
+
+
+pivot_DIARIO <- pivot_Diario %>%
+  
+  pivot_wider(
+    names_from = "Group.2",
+    values_from = "x")
+colnames(pivot_DIARIO)[1] <- "Nro_Id_Asignado_Custodio"
+
+########
+Datos <- Portafolio_Final %>%
+  left_join(pivot_DIARIO, by = "Nro_Id_Asignado_Custodio")
+
+###Modificar si el mes es de 31 días adicionandole el -42 si es de 30 dejar hasta -41
+
+Datos <- Datos[,c(-12,-13,-14,-15,-16,-17,-18,-19,-20,-21,-22,-23,-24,-25,-26,-27,-28,-29,-30,-31,-32,-33,-34,-35,-36,-37,-38,-39,-40,-41,-42)]
+
+##Se hace la multiplicación de la Q del Portafolio_Final por el Precio_SUCIO de cada día del nuevo mes para cada ISIN
+
+indx <- grep('2022', colnames(Datos))
+for(j in indx){
+  set(Datos, i=NULL, j=j, value=Datos[[j]]*Datos[['Q']])
+}
+
+Day01 <- Datos[,c(1:16)]
+Day02 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,17)]
+Day03 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,18)]
+Day04 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,19)]
+Day05 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,20)]
+Day06 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,21)]
+Day07 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,22)]
+Day08 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,23)]
+Day09 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,24)]
+Day10 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,25)]
+Day11 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,26)]
+Day12 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,27)]
+Day13 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,28)]
+Day14 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,29)]
+Day15 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,30)]
+Day16 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,31)]
+Day17 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,32)]
+Day18 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,33)]
+Day19 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,34)]
+Day20 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,35)]
+Day21 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,36)]
+Day22 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,37)]
+Day23 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,38)]
+Day24 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,39)]
+Day25 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,40)]
+Day26 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,41)]
+Day27 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,42)]
+Day28 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,43)]
+Day29 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,44)]
+Day30 <- Datos[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,45)]
+
+Day01 <- melt(Day01, id.vars=1:15)
+Day02 <- melt(Day02, id.vars=1:15)
+Day03 <- melt(Day03, id.vars=1:15)
+Day04 <- melt(Day04, id.vars=1:15)
+Day05 <- melt(Day05, id.vars=1:15)
+Day06 <- melt(Day06, id.vars=1:15)
+Day07 <- melt(Day07, id.vars=1:15)
+Day08 <- melt(Day08, id.vars=1:15)
+Day09 <- melt(Day09, id.vars=1:15)
+Day10 <- melt(Day10, id.vars=1:15)
+Day11 <- melt(Day11, id.vars=1:15)
+Day12 <- melt(Day12, id.vars=1:15)
+Day13 <- melt(Day13, id.vars=1:15)
+Day14 <- melt(Day14, id.vars=1:15)
+Day15 <- melt(Day15, id.vars=1:15)
+Day16 <- melt(Day16, id.vars=1:15)
+Day17 <- melt(Day17, id.vars=1:15)
+Day18 <- melt(Day18, id.vars=1:15)
+Day19 <- melt(Day19, id.vars=1:15)
+Day20 <- melt(Day20, id.vars=1:15)
+Day21 <- melt(Day21, id.vars=1:15)
+Day22 <- melt(Day22, id.vars=1:15)
+Day23 <- melt(Day23, id.vars=1:15)
+Day24 <- melt(Day24, id.vars=1:15)
+Day25 <- melt(Day25, id.vars=1:15)
+Day26 <- melt(Day26, id.vars=1:15)
+Day27 <- melt(Day27, id.vars=1:15)
+Day28 <- melt(Day28, id.vars=1:15)
+Day29 <- melt(Day29, id.vars=1:15)
+Day30 <- melt(Day30, id.vars=1:15)
+##Modificar de acuerdo al día que hayan datos
+Portafolio_Diario <- do.call("rbind", list(Day01,Day02,Day03,Day04,Day05,Day06,Day07,Day08,Day09,Day10,
+                                           Day11,Day12,Day13,Day14,Day15,Day16,Day17,Day18,Day19,Day20,
+                                           Day21,Day22,Day23,Day24,Day25,Day26,Day27,Day28,Day29))
+Portafolio_Diario <- select(Portafolio_Diario, AgrupClasInv_3, Codigo_Moneda, Vencimiento1, Tasa, Calificacion_Riesgo, RS_Emisor, Nemotecnico, Nro_Id_Asignado_Custodio,
+                            Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria, Promedio, PRECIO_SUCIO, Q, Nominal, value, variable)
+colnames(Portafolio_Diario)[13] <- "Precio Sucio"
+colnames(Portafolio_Diario)[15] <- "Promedio*Nominal"
+colnames(Portafolio_Diario)[16] <- "Monto"
+colnames(Portafolio_Diario)[17] <- "Fecha"
+
+Portafolio_Diario <- Portafolio_Diario %>% mutate_all(~replace(., is.nan(.), 0))
+
+Portafolio_Diario[sapply(Portafolio_Diario, is.infinite)] <- NA
+
+write.xlsx(Portafolio_Diario, "Portafolio_Diario.xlsx", asTable = TRUE, tableStyle = "TableStyleMedium2", sheetName = "Portafolio_Diario")
+
+################################################################################################################################# Monetarios
+Portafolio_Monetario <- Portafolio_De_Referencia[Portafolio_De_Referencia$Nombre_Categoria %in% c("Monetario"),]
+all(Portafolio_Monetario$Nombre_Categoria == "Monetario")
+Percentage_Monetario <- pct(Portafolio_Monetario, c('2022-10-01', '2022-10-02','2022-10-03','2022-10-04', '2022-10-05', '2022-10-06', '2022-10-07',
+                                                                       '2022-10-08', '2022-10-09', '2022-10-10', '2022-10-11', '2022-10-12', '2022-10-13', '2022-10-14', '2022-10-15', '2022-10-16',
+                                                                       '2022-10-17', '2022-10-18', '2022-10-19', '2022-10-20', '2022-10-21', '2022-10-22', '2022-10-23', '2022-10-24', '2022-10-25',
+                                                                       '2022-10-26', '2022-10-27', '2022-10-28', '2022-10-29', '2022-10-30', '2022-10-31'))
+Percentage_Monetario <- Percentage_Monetario[,c(-12,-13,-14,-15,-16,-17,-18,-19,-20,-21,-22,-23,-24,-25,-26,-27,-28,-29,-30,-31,-32,-33,-34,-35,-36,-37,-38,-39,-40,-41,-42)]
+
+Prom_Monetario <- as.data.frame(rowMeans(Percentage_Monetario[,c(-1,-2,-3,-4,-5,-6,-7,-8,-9,-10,-11)]))
+colnames(Prom_Monetario) <- "Promedio"
+
+Final_Monetario <- cbind(Percentage_Monetario, Prom_Monetario)
+##Promedio * nominal Monetarios
+
+Prom_Monetario$Promedio <-1000000*(Prom_Monetario$Promedio)
+
+sum(Prom_Monetario$Promedio)
+PromxNom_Monetario <- Prom_Monetario
+
+sum(PromxNom_Monetario$Promedio)
+colnames(PromxNom_Monetario)[1] <- "Promedio*Nominal"
+
+## PromedioxNominal <- cbind(Nro_Id_Asignado_Custodio, PromedioxNominal)
+####### Promedio Precio sucio mensual
+
+Portafolio_Agregado_Monetario <- merge(Percentage_Monetario, pivot_Mensual, by = "Nro_Id_Asignado_Custodio")
+
+Portafolio_Agregado_Monetario <- arrange(Portafolio_Agregado_Monetario, Nro_Id_Asignado_Custodio, Nemotecnico, Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria)
+
+ISIN_Mon <- as.data.frame(Portafolio_Agregado_Monetario[, c("Nro_Id_Asignado_Custodio")])
+colnames(ISIN_Mon)[1] <- "Nro_Id_Asignado_Custodio"
+##Revisar dimensiones matrices Portafolio Agregado y Portafolio_De_Referencia_Percentage que sean iguales 
+
+Percentage_Monetario <- cbind(Percentage_Monetario, PromxNom_Monetario)
+###Se crea función para poder identificar los ISINES que no estan contenidos en la consulta de proveedores de precios
+
+Percentage_Monetario <- as.data.frame(Percentage_Monetario[!(Percentage_Monetario$Nro_Id_Asignado_Custodio %notin% ISIN_Mon$Nro_Id_Asignado_Custodio),])
+## Se organiza el Portafolio de referencia con porcentajes
+Percentage_Monetario <- arrange(Percentage_Monetario, Nro_Id_Asignado_Custodio, Nemotecnico, Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria)
+##Comprobar si ambos portafolios estan igualmente organizados
+
+all(Percentage_Monetario$Nro_Id_Asignado_Custodio == Portafolio_Agregado_Monetario$Nro_Id_Asignado_Custodio)
+all(Percentage_Monetario$Nombre_Entidad == Portafolio_Agregado_Monetario$Nombre_Entidad)
+all(Percentage_Monetario$Nombre_Patrimonio == Portafolio_Agregado_Monetario$Nombre_Patrimonio)
+all(Percentage_Monetario$Nombre_Categoria == Portafolio_Agregado_Monetario$Nombre_Categoria)
+## Si al ejecutar el código en todos los all aparece TRUE ambas matrices están igualmente organizadas
+########### Calcula Q
+
+Q_Monetario <- as.data.frame(Percentage_Monetario$`Promedio*Nominal`/Portafolio_Agregado_Monetario$PRECIO_SUCIO)
+
+colnames(Q_Monetario)[1] <- "Q"
+###
+Final_Monetario <- as.data.frame(Final_Monetario[!(Final_Monetario$Nro_Id_Asignado_Custodio %notin% ISIN_Mon$Nro_Id_Asignado_Custodio),])
+Final_Monetario <- arrange(Final_Monetario, Nro_Id_Asignado_Custodio, Nemotecnico, Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria)
+##
+all(Final_Monetario$Nro_Id_Asignado_Custodio == Portafolio_Agregado_Monetario$Nro_Id_Asignado_Custodio)
+all(Final_Monetario$Nombre_Entidad == Portafolio_Agregado_Monetario$Nombre_Entidad)
+all(Final_Monetario$Nombre_Patrimonio == Portafolio_Agregado_Monetario$Nombre_Patrimonio)
+all(Final_Monetario$Nombre_Categoria == Portafolio_Agregado_Monetario$Nombre_Categoria)
+###
+PRECIO_SUCIO_Monetario <- as.data.frame(Portafolio_Agregado_Monetario$PRECIO_SUCIO)
+colnames(PRECIO_SUCIO_Monetario)[1] <- "PRECIO_SUCIO"
+###
+Final_Monetario <- cbind(Final_Monetario, PRECIO_SUCIO_Monetario)
+Final_Monetario <- cbind(Final_Monetario, Q_Monetario)
+## Sacando el promedio*nominal del Portafolio_De_Referencia_Percentage que ya esta organizado y con los ISINES que aparecen en la consulta de PP
+Nominal_Monetario <- as.data.frame(Percentage_Monetario[, c("Promedio*Nominal")])
+colnames(Nominal_Monetario)[1]<-"Nominal"
+Final_Monetario <- cbind(Final_Monetario, Nominal_Monetario)
+########bien
+Datos_Monetario <- Final_Monetario %>%
+  left_join(pivot_DIARIO, by = "Nro_Id_Asignado_Custodio")
+###Modificar si el mes es de 31 días adicionandole el -42 si es de 30 dejar hasta -41
+Datos_Monetario <- Datos_Monetario[,c(-12,-13,-14,-15,-16,-17,-18,-19,-20,-21,-22,-23,-24,-25,-26,-27,-28,-29,-30,-31,-32,-33,-34,-35,-36,-37,-38,-39,-40,-41,-42)]
+##Se hace la multiplicación de la Q del Portafolio_Final por el Precio_SUCIO de cada día del nuevo mes para cada ISIN
+indxM <- grep('2022', colnames(Datos_Monetario))
+for(j in indxM){
+  set(Datos_Monetario, i=NULL, j=j, value=Datos_Monetario[[j]]*Datos_Monetario[['Q']])
+}
+
+Day01M <- Datos_Monetario[,c(1:16)]
+Day02M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,17)]
+Day03M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,18)]
+Day04M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,19)]
+Day05M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,20)]
+Day06M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,21)]
+Day07M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,22)]
+Day08M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,23)]
+Day09M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,24)]
+Day10M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,25)]
+Day11M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,26)]
+Day12M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,27)]
+Day13M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,28)]
+Day14M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,29)]
+Day15M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,30)]
+Day16M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,31)]
+Day17M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,32)]
+Day18M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,33)]
+Day19M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,34)]
+Day20M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,35)]
+Day21M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,36)]
+Day22M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,37)]
+Day23M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,38)]
+Day24M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,39)]
+Day25M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,40)]
+Day26M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,41)]
+Day27M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,42)]
+Day28M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,43)]
+Day29M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,44)]
+Day30M <- Datos_Monetario[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,45)]
+
+Day01M <- melt(Day01M, id.vars=1:15)
+Day02M <- melt(Day02M, id.vars=1:15)
+Day03M <- melt(Day03M, id.vars=1:15)
+Day04M <- melt(Day04M, id.vars=1:15)
+Day05M <- melt(Day05M, id.vars=1:15)
+Day06M <- melt(Day06M, id.vars=1:15)
+Day07M <- melt(Day07M, id.vars=1:15)
+Day08M <- melt(Day08M, id.vars=1:15)
+Day09M <- melt(Day09M, id.vars=1:15)
+Day10M <- melt(Day10M, id.vars=1:15)
+Day11M <- melt(Day11M, id.vars=1:15)
+Day12M <- melt(Day12M, id.vars=1:15)
+Day13M <- melt(Day13M, id.vars=1:15)
+Day14M <- melt(Day14M, id.vars=1:15)
+Day15M <- melt(Day15M, id.vars=1:15)
+Day16M <- melt(Day16M, id.vars=1:15)
+Day17M <- melt(Day17M, id.vars=1:15)
+Day18M <- melt(Day18M, id.vars=1:15)
+Day19M <- melt(Day19M, id.vars=1:15)
+Day20M <- melt(Day20M, id.vars=1:15)
+Day21M <- melt(Day21M, id.vars=1:15)
+Day22M <- melt(Day22M, id.vars=1:15)
+Day23M <- melt(Day23M, id.vars=1:15)
+Day24M <- melt(Day24M, id.vars=1:15)
+Day25M <- melt(Day25M, id.vars=1:15)
+Day26M <- melt(Day26M, id.vars=1:15)
+Day27M <- melt(Day27M, id.vars=1:15)
+Day28M <- melt(Day28M, id.vars=1:15)
+Day29M <- melt(Day29M, id.vars=1:15)
+Day30M <- melt(Day30M, id.vars=1:15)
+##Modificar de acuerdo a la cantidad de día con datos
+Diario_Monetario <- do.call("rbind", list(Day01M,Day02M,Day03M,Day04M,Day05M,Day06M,Day07M,Day08M,Day09M,Day10M,
+                                           Day11M,Day12M,Day13M,Day14M,Day15M,Day16M,Day17M,Day18M,Day19M,Day20M,
+                                           Day21M,Day22M,Day23M,Day24M,Day25M,Day26M,Day27M,Day28M,Day29M))
+Diario_Monetario <- select(Diario_Monetario, AgrupClasInv_3, Codigo_Moneda, Vencimiento1, Tasa, Calificacion_Riesgo, RS_Emisor, Nemotecnico, Nro_Id_Asignado_Custodio,
+                            Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria, Promedio, PRECIO_SUCIO, Q, Nominal, value, variable)
+colnames(Diario_Monetario)[13] <- "Precio Sucio"
+colnames(Diario_Monetario)[15] <- "Promedio*Nominal"
+colnames(Diario_Monetario)[16] <- "Monto"
+colnames(Diario_Monetario)[17] <- "Fecha"
+
+Diario_Monetario <- Diario_Monetario %>% mutate_all(~replace(., is.nan(.), 0))
+
+Diario_Monetario[sapply(Diario_Monetario, is.infinite)] <- NA
+
+write.xlsx(Diario_Monetario, "Diario_Monetario.xlsx", asTable = TRUE, tableStyle = "TableStyleMedium2", sheetName = "Diario_Monetario")
+#####################################################################################################################################
+Portafolio_Balanceado <- Portafolio_De_Referencia[Portafolio_De_Referencia$Nombre_Categoria %in% c("Balanceado"),]
+all(Portafolio_Balanceado$Nombre_Categoria == "Balanceado")
+Percentage_Balanceado <- pct(Portafolio_Balanceado, c('2022-10-01', '2022-10-02','2022-10-03','2022-10-04', '2022-10-05', '2022-10-06', '2022-10-07',
+                                                    '2022-10-08', '2022-10-09', '2022-10-10', '2022-10-11', '2022-10-12', '2022-10-13', '2022-10-14', '2022-10-15', '2022-10-16',
+                                                    '2022-10-17', '2022-10-18', '2022-10-19', '2022-10-20', '2022-10-21', '2022-10-22', '2022-10-23', '2022-10-24', '2022-10-25',
+                                                    '2022-10-26', '2022-10-27', '2022-10-28', '2022-10-29', '2022-10-30', '2022-10-31'))
+Percentage_Balanceado <- Percentage_Balanceado[,c(-12,-13,-14,-15,-16,-17,-18,-19,-20,-21,-22,-23,-24,-25,-26,-27,-28,-29,-30,-31,-32,-33,-34,-35,-36,-37,-38,-39,-40,-41,-42)]
+
+Prom_Balanceado <- as.data.frame(rowMeans(Percentage_Balanceado[,c(-1,-2,-3,-4,-5,-6,-7,-8,-9,-10,-11)]))
+colnames(Prom_Balanceado) <- "Promedio"
+
+Final_Balanceado <- cbind(Percentage_Balanceado, Prom_Balanceado)
+##Promedio * nominal Monetarios
+
+Prom_Balanceado$Promedio <-1000000*(Prom_Balanceado$Promedio)
+
+sum(Prom_Balanceado$Promedio)
+PromxNom_Balanceado <- Prom_Balanceado
+
+sum(PromxNom_Balanceado$Promedio)
+colnames(PromxNom_Balanceado)[1] <- "Promedio*Nominal"
+
+## PromedioxNominal <- cbind(Nro_Id_Asignado_Custodio, PromedioxNominal)
+####### Promedio Precio sucio mensual
+
+Portafolio_Agregado_Balanceado <- merge(Percentage_Balanceado, pivot_Mensual, by = "Nro_Id_Asignado_Custodio")
+
+Portafolio_Agregado_Balanceado <- arrange(Portafolio_Agregado_Balanceado, Nro_Id_Asignado_Custodio, Nemotecnico, Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria)
+
+ISIN_Bal <- as.data.frame(Portafolio_Agregado_Balanceado[, c("Nro_Id_Asignado_Custodio")])
+colnames(ISIN_Bal)[1] <- "Nro_Id_Asignado_Custodio"
+##Revisar dimensiones matrices Portafolio Agregado y Portafolio_De_Referencia_Percentage que sean iguales 
+
+Percentage_Balanceado <- cbind(Percentage_Balanceado, PromxNom_Balanceado)
+###Se crea función para poder identificar los ISINES que no estan contenidos en la consulta de proveedores de precios
+
+Percentage_Balanceado <- as.data.frame(Percentage_Balanceado[!(Percentage_Balanceado$Nro_Id_Asignado_Custodio %notin% ISIN_Bal$Nro_Id_Asignado_Custodio),])
+## Se organiza el Portafolio de referencia con porcentajes
+Percentage_Balanceado <- arrange(Percentage_Balanceado, Nro_Id_Asignado_Custodio, Nemotecnico, Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria)
+##Comprobar si ambos portafolios estan igualmente organizados
+
+all(Percentage_Balanceado$Nro_Id_Asignado_Custodio == Portafolio_Agregado_Balanceado$Nro_Id_Asignado_Custodio)
+all(Percentage_Balanceado$Nombre_Entidad == Portafolio_Agregado_Balanceado$Nombre_Entidad)
+all(Percentage_Balanceado$Nombre_Patrimonio == Portafolio_Agregado_Balanceado$Nombre_Patrimonio)
+all(Percentage_Balanceado$Nombre_Categoria == Portafolio_Agregado_Balanceado$Nombre_Categoria)
+## Si al ejecutar el código en todos los all aparece TRUE ambas matrices están igualmente organizadas
+########### Calcula Q balanceado
+
+Q_Balanceado <- as.data.frame(Percentage_Balanceado$`Promedio*Nominal`/Portafolio_Agregado_Balanceado$PRECIO_SUCIO)
+
+colnames(Q_Balanceado)[1] <- "Q"
+###
+Final_Balanceado <- as.data.frame(Final_Balanceado[!(Final_Balanceado$Nro_Id_Asignado_Custodio %notin% ISIN_Bal$Nro_Id_Asignado_Custodio),])
+Final_Balanceado <- arrange(Final_Balanceado, Nro_Id_Asignado_Custodio, Nemotecnico, Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria)
+##
+all(Final_Balanceado$Nro_Id_Asignado_Custodio == Portafolio_Agregado_Balanceado$Nro_Id_Asignado_Custodio)
+all(Final_Balanceado$Nombre_Entidad == Portafolio_Agregado_Balanceado$Nombre_Entidad)
+all(Final_Balanceado$Nombre_Patrimonio == Portafolio_Agregado_Balanceado$Nombre_Patrimonio)
+all(Final_Balanceado$Nombre_Categoria == Portafolio_Agregado_Balanceado$Nombre_Categoria)
+###
+PRECIO_SUCIO_Balanceado <- as.data.frame(Portafolio_Agregado_Balanceado$PRECIO_SUCIO)
+colnames(PRECIO_SUCIO_Balanceado)[1] <- "PRECIO_SUCIO"
+###
+Final_Balanceado <- cbind(Final_Balanceado, PRECIO_SUCIO_Balanceado)
+Final_Balanceado <- cbind(Final_Balanceado, Q_Balanceado)
+## Sacando el promedio*nominal del Portafolio_De_Referencia_Percentage que ya esta organizado y con los ISINES que aparecen en la consulta de PP
+Nominal_Balanceado <- as.data.frame(Percentage_Balanceado[, c("Promedio*Nominal")])
+colnames(Nominal_Balanceado)[1]<-"Nominal"
+Final_Balanceado <- cbind(Final_Balanceado, Nominal_Balanceado)
+########bien
+Datos_Balanceado <- Final_Balanceado %>%
+  left_join(pivot_DIARIO, by = "Nro_Id_Asignado_Custodio")
+###Modificar si el mes es de 31 días adicionandole el -42 si es de 30 dejar hasta -41
+Datos_Balanceado <- Datos_Balanceado[,c(-12,-13,-14,-15,-16,-17,-18,-19,-20,-21,-22,-23,-24,-25,-26,-27,-28,-29,-30,-31,-32,-33,-34,-35,-36,-37,-38,-39,-40,-41,-42)]
+##Se hace la multiplicación de la Q del Portafolio_Final por el Precio_SUCIO de cada día del nuevo mes para cada ISIN
+indxB <- grep('2022', colnames(Datos_Balanceado))
+for(j in indxB){
+  set(Datos_Balanceado, i=NULL, j=j, value=Datos_Balanceado[[j]]*Datos_Balanceado[['Q']])
+}
+
+Day01B <- Datos_Balanceado[,c(1:16)]
+Day02B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,17)]
+Day03B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,18)]
+Day04B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,19)]
+Day05B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,20)]
+Day06B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,21)]
+Day07B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,22)]
+Day08B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,23)]
+Day09B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,24)]
+Day10B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,25)]
+Day11B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,26)]
+Day12B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,27)]
+Day13B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,28)]
+Day14B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,29)]
+Day15B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,30)]
+Day16B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,31)]
+Day17B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,32)]
+Day18B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,33)]
+Day19B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,34)]
+Day20B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,35)]
+Day21B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,36)]
+Day22B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,37)]
+Day23B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,38)]
+Day24B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,39)]
+Day25B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,40)]
+Day26B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,41)]
+Day27B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,42)]
+Day28B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,43)]
+Day29B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,44)]
+Day30B <- Datos_Balanceado[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,45)]
+
+Day01B <- melt(Day01B, id.vars=1:15)
+Day02B <- melt(Day02B, id.vars=1:15)
+Day03B <- melt(Day03B, id.vars=1:15)
+Day04B <- melt(Day04B, id.vars=1:15)
+Day05B <- melt(Day05B, id.vars=1:15)
+Day06B <- melt(Day06B, id.vars=1:15)
+Day07B <- melt(Day07B, id.vars=1:15)
+Day08B <- melt(Day08B, id.vars=1:15)
+Day09B <- melt(Day09B, id.vars=1:15)
+Day10B <- melt(Day10B, id.vars=1:15)
+Day11B <- melt(Day11B, id.vars=1:15)
+Day12B <- melt(Day12B, id.vars=1:15)
+Day13B <- melt(Day13B, id.vars=1:15)
+Day14B <- melt(Day14B, id.vars=1:15)
+Day15B <- melt(Day15B, id.vars=1:15)
+Day16B <- melt(Day16B, id.vars=1:15)
+Day17B <- melt(Day17B, id.vars=1:15)
+Day18B <- melt(Day18B, id.vars=1:15)
+Day19B <- melt(Day19B, id.vars=1:15)
+Day20B <- melt(Day20B, id.vars=1:15)
+Day21B <- melt(Day21B, id.vars=1:15)
+Day22B <- melt(Day22B, id.vars=1:15)
+Day23B <- melt(Day23B, id.vars=1:15)
+Day24B <- melt(Day24B, id.vars=1:15)
+Day25B <- melt(Day25B, id.vars=1:15)
+Day26B <- melt(Day26B, id.vars=1:15)
+Day27B <- melt(Day27B, id.vars=1:15)
+Day28B <- melt(Day28B, id.vars=1:15)
+Day29B <- melt(Day29B, id.vars=1:15)
+Day30B <- melt(Day30B, id.vars=1:15)
+##Modificar de acuerdo a la cantidad de día con datos
+Diario_Balanceado <- do.call("rbind", list(Day01B,Day02B,Day03B,Day04B,Day05B,Day06B,Day07B,Day08B,Day09B,Day10B,
+                                          Day11B,Day12B,Day13B,Day14B,Day15B,Day16B,Day17B,Day18B,Day19B,Day20B,
+                                          Day21B,Day22B,Day23B,Day24B,Day25B,Day26B,Day27B,Day28B,Day29B))
+Diario_Balanceado <- select(Diario_Balanceado, AgrupClasInv_3, Codigo_Moneda, Vencimiento1, Tasa, Calificacion_Riesgo, RS_Emisor, Nemotecnico, Nro_Id_Asignado_Custodio,
+                           Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria, Promedio, PRECIO_SUCIO, Q, Nominal, value, variable)
+colnames(Diario_Balanceado)[13] <- "Precio Sucio"
+colnames(Diario_Balanceado)[15] <- "Promedio*Nominal"
+colnames(Diario_Balanceado)[16] <- "Monto"
+colnames(Diario_Balanceado)[17] <- "Fecha"
+
+Diario_Balanceado <- Diario_Balanceado %>% mutate_all(~replace(., is.nan(.), 0))
+
+Diario_Balanceado[sapply(Diario_Balanceado, is.infinite)] <- NA
+
+write.xlsx(Diario_Balanceado, "Diario_Balanceado.xlsx", asTable = TRUE, tableStyle = "TableStyleMedium2", sheetName = "Diario_Balanceado")
+
+####################################################################################################################################################################################
+Portafolio_Rentav <- Portafolio_De_Referencia[Portafolio_De_Referencia$Nombre_Categoria %in% c("Renta_Variable"),]
+all(Portafolio_Rentav$Nombre_Categoria == "Renta_Variable")
+Percentage_Rentav <- pct(Portafolio_Rentav, c('2022-10-01', '2022-10-02','2022-10-03','2022-10-04', '2022-10-05', '2022-10-06', '2022-10-07',
+                                                      '2022-10-08', '2022-10-09', '2022-10-10', '2022-10-11', '2022-10-12', '2022-10-13', '2022-10-14', '2022-10-15', '2022-10-16',
+                                                      '2022-10-17', '2022-10-18', '2022-10-19', '2022-10-20', '2022-10-21', '2022-10-22', '2022-10-23', '2022-10-24', '2022-10-25',
+                                                      '2022-10-26', '2022-10-27', '2022-10-28', '2022-10-29', '2022-10-30', '2022-10-31'))
+###Si el mes es de 31 días dejar hasta -42, si es de 30 dejar hasta -41 y si es de 29 dejar hasta -40
+Percentage_Rentav <- Percentage_Rentav[,c(-12,-13,-14,-15,-16,-17,-18,-19,-20,-21,-22,-23,-24,-25,-26,-27,-28,-29,-30,-31,-32,-33,-34,-35,-36,-37,-38,-39,-40,-41,-42)]
+
+Prom_Rentav <- as.data.frame(rowMeans(Percentage_Rentav[,c(-1,-2,-3,-4,-5,-6,-7,-8,-9,-10,-11)]))
+colnames(Prom_Rentav) <- "Promedio"
+
+Final_Rentav <- cbind(Percentage_Rentav, Prom_Rentav)
+##Promedio * nominal Monetarios
+
+Prom_Rentav$Promedio <-1000000*(Prom_Rentav$Promedio)
+
+sum(Prom_Rentav$Promedio)
+PromxNom_Rentav <- Prom_Rentav
+
+sum(PromxNom_Rentav$Promedio)
+colnames(PromxNom_Rentav)[1] <- "Promedio*Nominal"
+
+## PromedioxNominal <- cbind(Nro_Id_Asignado_Custodio, PromedioxNominal)
+####### Promedio Precio sucio mensual
+
+Portafolio_Agregado_Rentav <- merge(Percentage_Rentav, pivot_Mensual, by = "Nro_Id_Asignado_Custodio")
+
+Portafolio_Agregado_Rentav <- arrange(Portafolio_Agregado_Rentav, Nro_Id_Asignado_Custodio, Nemotecnico, Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria)
+
+ISIN_Ren <- as.data.frame(Portafolio_Agregado_Rentav[, c("Nro_Id_Asignado_Custodio")])
+colnames(ISIN_Ren)[1] <- "Nro_Id_Asignado_Custodio"
+##Revisar dimensiones matrices Portafolio Agregado y Portafolio_De_Referencia_Percentage que sean iguales 
+
+Percentage_Rentav <- cbind(Percentage_Rentav, PromxNom_Rentav)
+###Se crea función para poder identificar los ISINES que no estan contenidos en la consulta de proveedores de precios
+
+Percentage_Rentav <- as.data.frame(Percentage_Rentav[!(Percentage_Rentav$Nro_Id_Asignado_Custodio %notin% ISIN_Ren$Nro_Id_Asignado_Custodio),])
+## Se organiza el Portafolio de referencia con porcentajes
+Percentage_Rentav <- arrange(Percentage_Rentav, Nro_Id_Asignado_Custodio, Nemotecnico, Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria)
+##Comprobar si ambos portafolios estan igualmente organizados
+
+all(Percentage_Rentav$Nro_Id_Asignado_Custodio == Portafolio_Agregado_Rentav$Nro_Id_Asignado_Custodio)
+all(Percentage_Rentav$Nombre_Entidad == Portafolio_Agregado_Rentav$Nombre_Entidad)
+all(Percentage_Rentav$Nombre_Patrimonio == Portafolio_Agregado_Rentav$Nombre_Patrimonio)
+all(Percentage_Rentav$Nombre_Categoria == Portafolio_Agregado_Rentav$Nombre_Categoria)
+## Si al ejecutar el código en todos los all aparece TRUE ambas matrices están igualmente organizadas
+########### Calcula Q Renta Variable
+
+Q_Rentav <- as.data.frame(Percentage_Rentav$`Promedio*Nominal`/Portafolio_Agregado_Rentav$PRECIO_SUCIO)
+
+colnames(Q_Rentav)[1] <- "Q"
+###
+Final_Rentav <- as.data.frame(Final_Rentav[!(Final_Rentav$Nro_Id_Asignado_Custodio %notin% ISIN_Ren$Nro_Id_Asignado_Custodio),])
+Final_Rentav <- arrange(Final_Rentav, Nro_Id_Asignado_Custodio, Nemotecnico, Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria)
+##
+all(Final_Rentav$Nro_Id_Asignado_Custodio == Portafolio_Agregado_Rentav$Nro_Id_Asignado_Custodio)
+all(Final_Rentav$Nombre_Entidad == Portafolio_Agregado_Rentav$Nombre_Entidad)
+all(Final_Rentav$Nombre_Patrimonio == Portafolio_Agregado_Rentav$Nombre_Patrimonio)
+all(Final_Rentav$Nombre_Categoria == Portafolio_Agregado_Rentav$Nombre_Categoria)
+###
+PRECIO_SUCIO_Rentav <- as.data.frame(Portafolio_Agregado_Rentav$PRECIO_SUCIO)
+colnames(PRECIO_SUCIO_Rentav)[1] <- "PRECIO_SUCIO"
+###
+Final_Rentav <- cbind(Final_Rentav, PRECIO_SUCIO_Rentav)
+Final_Rentav <- cbind(Final_Rentav, Q_Rentav)
+## Sacando el promedio*nominal del Portafolio_De_Referencia_Percentage que ya esta organizado y con los ISINES que aparecen en la consulta de PP
+Nominal_Rentav <- as.data.frame(Percentage_Rentav[, c("Promedio*Nominal")])
+colnames(Nominal_Rentav)[1]<-"Nominal"
+Final_Rentav <- cbind(Final_Rentav, Nominal_Rentav)
+########bien
+Datos_Rentav <- Final_Rentav %>%
+  left_join(pivot_DIARIO, by = "Nro_Id_Asignado_Custodio")
+###Modificar si el mes es de 31 días adicionandole el -42 si es de 30 dejar hasta -41
+Datos_Rentav <- Datos_Rentav[,c(-12,-13,-14,-15,-16,-17,-18,-19,-20,-21,-22,-23,-24,-25,-26,-27,-28,-29,-30,-31,-32,-33,-34,-35,-36,-37,-38,-39,-40,-41,-42)]
+##Se hace la multiplicación de la Q del Portafolio_Final por el Precio_SUCIO de cada día del nuevo mes para cada ISIN
+indxR <- grep('2022', colnames(Datos_Rentav))
+for(j in indxR){
+  set(Datos_Rentav, i=NULL, j=j, value=Datos_Rentav[[j]]*Datos_Rentav[['Q']])
+}
+
+Day01R <- Datos_Rentav[,c(1:16)]
+Day02R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,17)]
+Day03R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,18)]
+Day04R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,19)]
+Day05R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,20)]
+Day06R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,21)]
+Day07R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,22)]
+Day08R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,23)]
+Day09R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,24)]
+Day10R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,25)]
+Day11R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,26)]
+Day12R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,27)]
+Day13R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,28)]
+Day14R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,29)]
+Day15R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,30)]
+Day16R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,31)]
+Day17R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,32)]
+Day18R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,33)]
+Day19R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,34)]
+Day20R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,35)]
+Day21R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,36)]
+Day22R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,37)]
+Day23R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,38)]
+Day24R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,39)]
+Day25R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,40)]
+Day26R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,41)]
+Day27R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,42)]
+Day28R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,43)]
+Day29R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,44)]
+Day30R <- Datos_Rentav[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,45)]
+
+Day01R <- melt(Day01R, id.vars=1:15)
+Day02R <- melt(Day02R, id.vars=1:15)
+Day03R <- melt(Day03R, id.vars=1:15)
+Day04R <- melt(Day04R, id.vars=1:15)
+Day05R <- melt(Day05R, id.vars=1:15)
+Day06R <- melt(Day06R, id.vars=1:15)
+Day07R <- melt(Day07R, id.vars=1:15)
+Day08R <- melt(Day08R, id.vars=1:15)
+Day09R <- melt(Day09R, id.vars=1:15)
+Day10R <- melt(Day10R, id.vars=1:15)
+Day11R <- melt(Day11R, id.vars=1:15)
+Day12R <- melt(Day12R, id.vars=1:15)
+Day13R <- melt(Day13R, id.vars=1:15)
+Day14R <- melt(Day14R, id.vars=1:15)
+Day15R <- melt(Day15R, id.vars=1:15)
+Day16R <- melt(Day16R, id.vars=1:15)
+Day17R <- melt(Day17R, id.vars=1:15)
+Day18R <- melt(Day18R, id.vars=1:15)
+Day19R <- melt(Day19R, id.vars=1:15)
+Day20R <- melt(Day20R, id.vars=1:15)
+Day21R <- melt(Day21R, id.vars=1:15)
+Day22R <- melt(Day22R, id.vars=1:15)
+Day23R <- melt(Day23R, id.vars=1:15)
+Day24R <- melt(Day24R, id.vars=1:15)
+Day25R <- melt(Day25R, id.vars=1:15)
+Day26R <- melt(Day26R, id.vars=1:15)
+Day27R <- melt(Day27R, id.vars=1:15)
+Day28R <- melt(Day28R, id.vars=1:15)
+Day29R <- melt(Day29R, id.vars=1:15)
+Day30R <- melt(Day30R, id.vars=1:15)
+##Modificar de acuerdo a la cantidad de día con datos
+Diario_Rentav <- do.call("rbind", list(Day01R,Day02R,Day03R,Day04R,Day05R,Day06R,Day07R,Day08R,Day09R,Day10R,
+                                           Day11R,Day12R,Day13R,Day14R,Day15R,Day16R,Day17R,Day18R,Day19R,Day20R,
+                                           Day21R,Day22R,Day23R,Day24R,Day25R,Day26R,Day27R,Day28R,Day29R))
+Diario_Rentav <- select(Diario_Rentav, AgrupClasInv_3, Codigo_Moneda, Vencimiento1, Tasa, Calificacion_Riesgo, RS_Emisor, Nemotecnico, Nro_Id_Asignado_Custodio,
+                            Nombre_Entidad, Nombre_Patrimonio, Nombre_Categoria, Promedio, PRECIO_SUCIO, Q, Nominal, value, variable)
+colnames(Diario_Rentav)[13] <- "Precio Sucio"
+colnames(Diario_Rentav)[15] <- "Promedio*Nominal"
+colnames(Diario_Rentav)[16] <- "Monto"
+colnames(Diario_Rentav)[17] <- "Fecha"
+Diario_Rentav <- Diario_Rentav %>% mutate_all(~replace(., is.nan(.), 0))
+
+Diario_Rentav[sapply(Diario_Rentav, is.infinite)] <- NA
+
+write.xlsx(Diario_Rentav, "Diario_Rentav.xlsx", asTable = TRUE, tableStyle = "TableStyleMedium2", sheetName = "Diario_Rentav")
